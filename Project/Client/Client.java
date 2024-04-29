@@ -14,6 +14,7 @@ import Project.Common.Cell;
 import Project.Common.CellData;
 import Project.Common.ConnectionPayload;
 import Project.Common.Constants;
+import Project.Common.DMPayload;
 import Project.Common.Grid;
 import Project.Common.Payload;
 import Project.Common.PayloadType;
@@ -49,6 +50,7 @@ public enum Client {
     private static final String MOVE = "/move";
     private static final String SHOW_GRID = "/grid";
     private static final String ROLL = "/roll";
+    private static final String DM = "@";
 
     // client id, is the key, client name is the value
     // private ConcurrentHashMap<Long, String> clientsInRoom = new
@@ -215,6 +217,9 @@ public enum Client {
                 grid.print();
             }
             return true;
+        // } else if(text.equalsIgnoreCase(DM)){
+
+        // }
         }
         return false;
     }
@@ -302,6 +307,15 @@ public enum Client {
         if (message.startsWith("/") && processClientCommand(message)) {
             return;
         }
+
+        if(message.startsWith("@")){
+            DMPayload dm = new DMPayload();
+            System.out.println(TextFX.colorize("Client is sending dm:" + message, Color.YELLOW));
+            dm.setMessage(message);
+            out.writeObject(dm);
+        } else if(message.startsWith("/mute")){
+            
+        }
         System.out.println(TextFX.colorize("Client is sending message: " + message, Color.YELLOW));
         Payload p = new Payload();
         p.setPayloadType(PayloadType.MESSAGE);
@@ -310,6 +324,13 @@ public enum Client {
         // p.setClientName(clientName);
         out.writeObject(p);
     }
+
+    // public void sendDM(String message) throws IOException {
+    //     DMPayload dm = new DMPayload();
+    //     System.out.println(TextFX.colorize("Client is sending dm:" + message, Color.YELLOW));
+    //     dm.setMessage(message);
+    //     out.writeObject(dm);
+    // }
 
     // end send methods
 

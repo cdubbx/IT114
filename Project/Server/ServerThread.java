@@ -9,6 +9,7 @@ import java.util.logging.Logger;
 
 import Project.Common.ConnectionPayload;
 import Project.Common.Constants;
+import Project.Common.DMPayload;
 import Project.Common.Payload;
 import Project.Common.PayloadType;
 import Project.Common.PointsPayload;
@@ -193,6 +194,15 @@ public class ServerThread extends Thread {
         return send(p);
     }
 
+    public boolean sendDM(long from, String message) {
+        DMPayload dm = new DMPayload();
+        // p.setClientName(from);
+        // monkey type 
+        dm.setClientId(from);
+        dm.setMessage(message);
+        return send(dm);
+    }
+
     /**
      * Used to associate client names and their ids from the server perspective
      * 
@@ -279,6 +289,16 @@ public class ServerThread extends Thread {
                 }
                 break;
             case MESSAGE:
+                if (currentRoom != null) {
+                    System.out
+                            .println(TextFX.colorize("ServerThread received message: " + p.getMessage(), Color.YELLOW));
+                    currentRoom.sendMessage(this, p.getMessage());
+                } else {
+                    // TODO migrate to lobby
+                    Room.joinRoom(Constants.LOBBY, this);
+                }
+                break;
+            case DM:
                 if (currentRoom != null) {
                     System.out
                             .println(TextFX.colorize("ServerThread received message: " + p.getMessage(), Color.YELLOW));

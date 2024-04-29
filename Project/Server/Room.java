@@ -181,6 +181,8 @@ public class Room implements AutoCloseable {
         }
 
         /// String from = (sender == null ? "Room" : sender.getClientName());
+
+        // this is where I need to add logic to send the messag edepending on what type is
         long from = (sender == null) ? Constants.DEFAULT_CLIENT_ID : sender.getClientId();
         Iterator<ServerThread> iter = clients.iterator();
         while (iter.hasNext()) {
@@ -192,6 +194,89 @@ public class Room implements AutoCloseable {
         }
     }
 
+    protected synchronized void sendDM(ServerThread sender, String receiver, String message){
+        if(!isRunning){
+            return;
+        }
+        if(sender != null && processCommands(message, sender)){
+            return;
+        }
+
+        long from = (sender == null) ? Constants.DEFAULT_CLIENT_ID : sender.getClientId();
+        Iterator<ServerThread> iter = clients.iterator();
+        while(iter.hasNext()){
+            ServerThread client = iter.next();
+            if(client.getClientName().equalsIgnoreCase(receiver)){
+                boolean messageSent = client.sendMessage(from, message);
+                if(!messageSent){
+                    handleDisconnect(iter, client);
+                }
+            }
+            if(client.getClientName().equalsIgnoreCase(sender.getClientName())){
+                   boolean messageSent = client.sendMessage(from, message);
+            if(!messageSent){
+                handleDisconnect(iter, client);
+            }
+            }
+         
+        }
+    }
+
+    protected synchronized void sendMute(ServerThread sender, String receiver, String message){
+        if(!isRunning){
+            return;
+        }
+        if(sender != null && processCommands(message, sender)){
+            return;
+        }
+
+        long from = (sender == null) ? Constants.DEFAULT_CLIENT_ID : sender.getClientId();
+        Iterator<ServerThread> iter = clients.iterator();
+        while(iter.hasNext()){
+            ServerThread client = iter.next();
+            if(client.getClientName().equalsIgnoreCase(receiver)){
+                boolean messageSent = client.sendMessage(from, message);
+                if(!messageSent){
+                    handleDisconnect(iter, client);
+                }
+            }
+            if(client.getClientName().equalsIgnoreCase(sender.getClientName())){
+                   boolean messageSent = client.sendMessage(from, message);
+            if(!messageSent){
+                handleDisconnect(iter, client);
+            }
+            }
+         
+        }
+    }
+
+    protected synchronized void sendUnMute(ServerThread sender, String receiver, String message){
+        if(!isRunning){
+            return;
+        }
+        if(sender != null && processCommands(message, sender)){
+            return;
+        }
+
+        long from = (sender == null) ? Constants.DEFAULT_CLIENT_ID : sender.getClientId();
+        Iterator<ServerThread> iter = clients.iterator();
+        while(iter.hasNext()){
+            ServerThread client = iter.next();
+            if(client.getClientName().equalsIgnoreCase(receiver)){
+                boolean messageSent = client.sendMessage(from, message);
+                if(!messageSent){
+                    handleDisconnect(iter, client);
+                }
+            }
+            if(client.getClientName().equalsIgnoreCase(sender.getClientName())){
+                   boolean messageSent = client.sendMessage(from, message);
+            if(!messageSent){
+                handleDisconnect(iter, client);
+            }
+            }
+         
+        }
+    }
     protected synchronized void sendConnectionStatus(ServerThread sender, boolean isConnected) {
         Iterator<ServerThread> iter = clients.iterator();
         while (iter.hasNext()) {
