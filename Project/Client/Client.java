@@ -16,6 +16,7 @@ import Project.Common.ConnectionPayload;
 import Project.Common.Constants;
 import Project.Common.DMPayload;
 import Project.Common.Grid;
+import Project.Common.MutePayload;
 import Project.Common.Payload;
 import Project.Common.PayloadType;
 import Project.Common.Phase;
@@ -25,6 +26,7 @@ import Project.Common.ReadyPayload;
 import Project.Common.RoomResultsPayload;
 import Project.Common.TextFX;
 import Project.Common.TurnStatusPayload;
+import Project.Common.UnMutePayload;
 import Project.Common.TextFX.Color;
 
 public enum Client {
@@ -60,6 +62,7 @@ public enum Client {
     private Logger logger = Logger.getLogger(Client.class.getName());
     private Phase currentPhase = Phase.READY;
     private Grid grid = new Grid();
+
 
     // callback that updates the UI
     private static List<IClientEvents> events = new ArrayList<IClientEvents>();
@@ -217,9 +220,21 @@ public enum Client {
                 grid.print();
             }
             return true;
-        // } else if(text.equalsIgnoreCase(DM)){
-
-        // }
+        }  else if(text.startsWith("/mute")){
+            try{
+                sendMute(text);
+            } catch (IOException e){
+                e.printStackTrace();
+            }
+          
+            // out.writeObject(mute);
+        } else if(text.startsWith("/unmute")){
+            try{
+                sendUnMute(text);
+            } catch (IOException e){
+                e.printStackTrace();
+            }
+            // out.writeObject(mute);
         }
         return false;
     }
@@ -303,23 +318,40 @@ public enum Client {
         out.writeObject(p);
     }
 
+    private void sendMute(String message) throws IOException {
+            String[] parts = message.split(" ");
+            MutePayload mute = new MutePayload(clientName, parts[1]);
+            out.writeObject(mute);
+        }
+
+    
+     private void sendUnMute(String message) throws IOException {
+            String[] parts = message.split(" ");
+            UnMutePayload unmute = new UnMutePayload(clientName, parts[1]);
+            out.writeObject(unmute);
+     }
+
+    
+    
+
     public void sendMessage(String message) throws IOException {
         if (message.startsWith("/") && processClientCommand(message)) {
             return;
         }
 
         if(message.startsWith("@")){
+            String[] parts = message.split("@");
             DMPayload dm = new DMPayload();
             System.out.println(TextFX.colorize("Client is sending dm:" + message, Color.YELLOW));
+            dm.setSender(clientName);
+            dm.setReceiver(parts[1]);
             dm.setMessage(message);
             out.writeObject(dm);
-        } else if(message.startsWith("/mute")){
-            
         }
-        System.out.println(TextFX.colorize("Client is sending message: " + message, Color.YELLOW));
-        Payload p = new Payload();
-        p.setPayloadType(PayloadType.MESSAGE);
-        p.setMessage(message);
+            System.out.println(TextFX.colorize("Client is sending message: " + message, Color.YELLOW));
+            Payload p = new Payload();
+            p.setPayloadType(PayloadType.MESSAGE);
+            p.setMessage(message);
         // no need to send an identifier, because the server knows who we are
         // p.setClientName(clientName);
         out.writeObject(p);
@@ -391,6 +423,10 @@ public enum Client {
         }
         return "[name not found]";
     }
+
+    // come with a function that loops through each of the clients and is able to extract the id from the name
+    
+
 
     /**
      * Used to process payloads from the server-side and handle their data

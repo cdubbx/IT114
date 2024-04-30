@@ -304,7 +304,25 @@ public class ServerThread extends Thread {
                             .println(TextFX.colorize("ServerThread received message: " + p.getMessage(), Color.YELLOW));
                     currentRoom.sendMessage(this, p.getMessage());
                 } else {
-                    // TODO migrate to lobby
+                    Room.joinRoom(Constants.LOBBY, this);
+                }
+                break;
+
+                case MUTE:
+                if (currentRoom != null) {
+                    System.out
+                            .println(TextFX.colorize("ServerThread received message: " + p.getMessage(), Color.YELLOW));
+                    currentRoom.sendMessage(this, p.getMessage());
+                } else {
+                    Room.joinRoom(Constants.LOBBY, this);
+                }
+                break;
+                case UNMUTE:
+                if (currentRoom != null) {
+                    System.out
+                            .println(TextFX.colorize("ServerThread received message: " + p.getMessage(), Color.YELLOW));
+                    currentRoom.sendMessage(this, p.getMessage());
+                } else {
                     Room.joinRoom(Constants.LOBBY, this);
                 }
                 break;

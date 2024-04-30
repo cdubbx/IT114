@@ -9,9 +9,16 @@ public class DMPayload extends Payload {
 
     String sender;
 
+    String receiver;
+
     public void setSender(String sender){
         this.sender = sender;
     }
+
+    public void setReceiver(String receiver){
+        this.receiver = receiver;
+    }
+
 
     public String getSender(){
         return this.sender;
