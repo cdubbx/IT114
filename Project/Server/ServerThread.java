@@ -5,11 +5,15 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.List;
+import java.util.Random;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
+import Project.Client.ClientPlayer;
 import Project.Common.ConnectionPayload;
 import Project.Common.Constants;
 import Project.Common.DMPayload;
+import Project.Common.MutePayload;
 import Project.Common.Payload;
 import Project.Common.PayloadType;
 import Project.Common.PointsPayload;
@@ -18,6 +22,7 @@ import Project.Common.ReadyPayload;
 import Project.Common.RoomResultsPayload;
 import Project.Common.TextFX;
 import Project.Common.TurnStatusPayload;
+import Project.Common.UnMutePayload;
 import Project.Common.TextFX.Color;
 
 /**
@@ -33,6 +38,8 @@ public class ServerThread extends Thread {
     // more easily
     private Room currentRoom;
     private Logger logger = Logger.getLogger(ServerThread.class.getName());
+    private ConcurrentHashMap<Long, ClientPlayer> clientMuteList = new ConcurrentHashMap<Long, ClientPlayer>();
+
 
     private void info(String message) {
         logger.info(String.format("Thread[%s]: %s", getClientName(), message));
@@ -186,6 +193,26 @@ public class ServerThread extends Thread {
     }
 
     public boolean sendMessage(long from, String message) {
+        // if(message.contains("@")){
+        //     int endIndex = message.indexOf(" ");
+        //     String username;
+        //     String payloadMessage;
+        //     if (endIndex == -1) { // No space found, so the whole string is the username
+        //         username = message.substring(1);
+        //         payloadMessage = "";
+        //     } else {
+        //         username = message.substring(1, endIndex);
+        //         payloadMessage = message.substring(endIndex + 1);
+        //     }
+        //     DMPayload dm = new DMPayload();
+        //     dm.setMessage(payloadMessage);
+        //     dm.setReceiver(username);
+        //     dm.setClientId(from);
+
+        //     return send(dm);
+        // }
+
+
         Payload p = new Payload();
         p.setPayloadType(PayloadType.MESSAGE);
         // p.setClientName(from);
@@ -202,6 +229,71 @@ public class ServerThread extends Thread {
         dm.setMessage(message);
         return send(dm);
     }
+ // cw72 04/30/24 
+    public boolean sendMute(long from, String message, Long receiver, String name) {
+        // Check if the receiver is already muted by this client
+
+        if (from == receiver) {
+            System.out.println("Attempted self-mute prevented.");
+            return false;
+        }
+        if (!clientMuteList.containsKey(receiver)) {
+            // Not already muted, add to mute list
+            ClientPlayer cp = new ClientPlayer();
+            cp.setClientId(receiver); // Use the receiver's ID
+            cp.setClientName(name);
+            clientMuteList.put(receiver, cp);
+    
+            // Prepare a mute confirmation message
+            MutePayload mute = new MutePayload();
+            mute.setClientId(receiver); // ID of the client being muted
+            mute.setMessage("User " + name + " has been muted.");
+            return send(mute);
+        } else {
+            // Already muted, maybe send a notification back?
+            MutePayload mute = new MutePayload();
+            mute.setClientId(receiver); // ID of the sender
+            mute.setMessage("User " + name + " is already muted.");
+            return send(mute);
+        }
+    }
+
+    public boolean sendUnMute(long from, String message, Long receiver, String name) {
+        // Check if the receiver is already muted by this client
+
+        if (from == receiver) {
+            System.out.println("Attempted self-mute prevented.");
+            return false;
+        }
+        if (clientMuteList.containsKey(receiver)) {
+    
+            clientMuteList.remove(receiver);
+    
+            // Prepare a mute confirmation message
+            UnMutePayload unmute = new UnMutePayload();
+            unmute.setClientId(receiver); // ID of the client being unmuted
+            return send(unmute);
+        } else {
+            // Already unmuted, maybe send a notification back?
+            UnMutePayload unmute = new UnMutePayload();
+            unmute.setMessage("User was never muted");
+            unmute.setClientId(receiver); // ID of the sender
+            return send(unmute);
+        }
+    }
+    
+    
+       
+        // p.setClientName(from);
+   
+       public ConcurrentHashMap<Long, ClientPlayer> getMuteList(){
+            return clientMuteList;
+       }
+    
+       public String Bold(String string){
+        return string.replaceAll("\\*(.*?)\\*", "<b>$1</b>");
+    }
+
 
     /**
      * Used to associate client names and their ids from the server perspective
@@ -236,6 +328,30 @@ public class ServerThread extends Thread {
             info("Message was attempted to be sent before outbound stream was opened");
             return true;// true since it's likely pending being opened
         }
+    }
+
+    public String diceRoll() {
+        Random random = new Random();
+        int randint = random.nextInt(6) + 1;  
+        String rollOutcome = Integer.toString(randint);  
+        return rollOutcome;  
+    }
+
+
+    public String flip(){
+        Random random= new Random();
+        String flipOutcome;
+        int randFlip= random.nextInt(2);
+
+        if (randFlip == 1){
+            flipOutcome = "Heads";
+            return flipOutcome;
+        }
+        else{
+            flipOutcome = "Tails";
+            return flipOutcome;
+        }
+
     }
 
     // end send methods
@@ -288,7 +404,7 @@ public class ServerThread extends Thread {
                     Room.disconnectClient(this, currentRoom);
                 }
                 break;
-            case MESSAGE:
+            case MESSAGE: 
                 if (currentRoom != null) {
                     System.out
                             .println(TextFX.colorize("ServerThread received message: " + p.getMessage(), Color.YELLOW));
@@ -299,32 +415,46 @@ public class ServerThread extends Thread {
                 }
                 break;
             case DM:
+                DMPayload dm = (DMPayload) p;
                 if (currentRoom != null) {
                     System.out
-                            .println(TextFX.colorize("ServerThread received message: " + p.getMessage(), Color.YELLOW));
-                    currentRoom.sendMessage(this, p.getMessage());
+                            .println(TextFX.colorize("ServerThread received message: " + dm.getMessage(), Color.YELLOW));
+                    currentRoom.sendDM(this, dm.getClientId(),dm.getMessage(), dm.getId());
                 } else {
                     Room.joinRoom(Constants.LOBBY, this);
                 }
                 break;
 
                 case MUTE:
-                if (currentRoom != null) {
-                    System.out
-                            .println(TextFX.colorize("ServerThread received message: " + p.getMessage(), Color.YELLOW));
-                    currentRoom.sendMessage(this, p.getMessage());
-                } else {
-                    Room.joinRoom(Constants.LOBBY, this);
+                try{
+                    MutePayload mp = (MutePayload) p;
+                    if (currentRoom != null) {
+                        System.out
+                                .println(TextFX.colorize("ServerThread received message: " + mp.getMessage(), Color.YELLOW));
+                        currentRoom.sendMute(this, mp.getClientId(), mp.toString(), mp.getId());
+                    } else {
+                        Room.joinRoom(Constants.LOBBY, this);
+                    }
+                    break;
+                } catch (Exception e){
+                    e.printStackTrace();
                 }
-                break;
+                    
+               
                 case UNMUTE:
-                if (currentRoom != null) {
-                    System.out
-                            .println(TextFX.colorize("ServerThread received message: " + p.getMessage(), Color.YELLOW));
-                    currentRoom.sendMessage(this, p.getMessage());
-                } else {
-                    Room.joinRoom(Constants.LOBBY, this);
-                }
+                try{
+                    UnMutePayload mp = (UnMutePayload) p;
+                    if (currentRoom != null) {
+                        System.out
+                                .println(TextFX.colorize("ServerThread received message: " + mp.getMessage(), Color.YELLOW));
+                        currentRoom.sendUmute(this, mp.getClientId(), mp.toString(), mp.getId());
+                    } else {
+                        Room.joinRoom(Constants.LOBBY, this);
+                    }
+                    break;
+                } catch (Exception e){
+                    e.printStackTrace();
+                } 
                 break;
             case CREATE_ROOM:
                 Room.createRoom(p.getMessage(), this);
@@ -355,13 +485,52 @@ public class ServerThread extends Thread {
 
                 break;
 
-            case ROLL:
-                try {
-                    ((GameRoom) currentRoom).doRoll(this);
-                } catch (Exception e) {
+                case ROLL:
+                try{
+                    if (currentRoom != null) {
+                        String flipOutcome = flip();
+                        System.out
+                                .println(TextFX.colorize("ServerThread received message: " + p.getMessage(), Color.YELLOW));
+                        currentRoom.sendMessage(this, diceRoll());
+                    } else {
+                        Room.joinRoom(Constants.LOBBY, this);
+                    }
+            
+                } catch (Exception e){
                     e.printStackTrace();
-                    this.sendMessage(Constants.DEFAULT_CLIENT_ID,
-                            "You can only use the /roll commmand in a GameRoom and not the Lobby");
+    
+                }
+                break;
+    
+                
+             
+                case FLIP:
+                
+                    try{
+                        if (currentRoom != null) {
+                            String flipOutcome = flip();
+                            System.out
+                                    .println(TextFX.colorize("ServerThread received message: " + p.getMessage(), Color.YELLOW));
+                            currentRoom.sendMessage(this, flipOutcome);
+                        } else {
+                            Room.joinRoom(Constants.LOBBY, this);
+                        }
+                
+                    } catch (Exception e){
+                        e.printStackTrace();
+        
+                    }
+                    break;
+            case BOLD:
+                try{
+                    if (currentRoom != null){
+                        String boldAction = Bold(p.getMessage());
+                        currentRoom.sendMessage(this, boldAction);
+                    }
+                   
+    
+                } catch (Exception e){
+                    e.printStackTrace();
                 }
                 break;
             default:

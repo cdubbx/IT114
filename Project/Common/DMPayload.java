@@ -8,6 +8,7 @@ public class DMPayload extends Payload {
     }
 
     String sender;
+    Long id;
 
     String receiver;
 
@@ -17,6 +18,18 @@ public class DMPayload extends Payload {
 
     public void setReceiver(String receiver){
         this.receiver = receiver;
+    }
+
+    public void setId(Long id){
+        this.id = id;
+    }
+
+    public Long getId(){
+        return this.id;
+    }
+    
+    public String getReceiver(){
+        return this.receiver;
     }
 
 

@@ -7,6 +7,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
@@ -50,9 +51,11 @@ public enum Client {
     private static final String READY_CHECK = "/ready";
     private static final String SIMULATE_TURN = "/turn";
     private static final String MOVE = "/move";
+    private static final String FLIP = "/flip";
     private static final String SHOW_GRID = "/grid";
     private static final String ROLL = "/roll";
     private static final String DM = "@";
+    private static final String BOLD = "/bold";
 
     // client id, is the key, client name is the value
     // private ConcurrentHashMap<Long, String> clientsInRoom = new
@@ -215,12 +218,27 @@ public enum Client {
                 e.printStackTrace();
             }
             return true;
+        } else if (text.equalsIgnoreCase(ROLL)) {
+            try {
+                sendRoll();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return true;
         } else if (text.equalsIgnoreCase(SHOW_GRID)) {
             if (grid != null) {
                 grid.print();
             }
             return true;
-        }  else if(text.startsWith("/mute")){
+
+            //FLIP
+        } else if (text.equalsIgnoreCase(FLIP)){
+            try{
+                sendFlip();
+            } catch (IOException e){
+                e.printStackTrace();
+            }
+        } else if(text.startsWith("/mute")){
             try{
                 sendMute(text);
             } catch (IOException e){
@@ -234,7 +252,26 @@ public enum Client {
             } catch (IOException e){
                 e.printStackTrace();
             }
+            return true;
             // out.writeObject(mute);
+        } else if(text.startsWith("/bold")){
+            try{
+                sendBold(text);
+            } catch (IOException e){
+                e.printStackTrace();
+            }
+        } else if(text.startsWith("/italics")){
+            try{
+                sendItalics(text);
+            } catch (IOException e){
+                e.printStackTrace();
+            }
+        } else if(text.startsWith("/under")){
+            try{
+                sendUnderLine(text);
+            } catch (IOException e){
+                e.printStackTrace();
+            }
         }
         return false;
     }
@@ -318,42 +355,176 @@ public enum Client {
         out.writeObject(p);
     }
 
+
+
+    public void sendFlip() throws IOException{
+        Payload p = new Payload();
+        p.setPayloadType(PayloadType.FLIP);
+        out.writeObject(p);
+    }
+
+
+    //cw72 04/30/24
+    private void sendBold(String message) throws IOException {
+      
+        int endIndex = message.indexOf(" ");
+        String username;
+        String payloadMessage;
+        if (endIndex == -1) { // No space found, so the whole string is the username
+            username = message.substring(1);
+            payloadMessage = "";
+        } else {
+            username = message.substring(1, endIndex);
+            payloadMessage = message.substring(endIndex + 1);
+        }
+        String messageToBold = "<b>" + payloadMessage + "</b>";
+
+        Payload p = new Payload();
+        p.setPayloadType(PayloadType.BOLD);
+        p.setMessage(messageToBold);
+        p.setClientId(myClientId);
+        out.writeObject(p);
+    }
+
+
+    private void sendItalics(String message) throws IOException {
+      
+        int endIndex = message.indexOf(" ");
+        String username;
+        String payloadMessage;
+        if (endIndex == -1) { // No space found, so the whole string is the username
+            username = message.substring(1);
+            payloadMessage = "";
+        } else {
+            username = message.substring(1, endIndex);
+            payloadMessage = message.substring(endIndex + 1);
+        }
+        String messageToBold = "<i>" + payloadMessage + "</i>";
+
+        Payload p = new Payload();
+        p.setPayloadType(PayloadType.BOLD);
+        p.setMessage(messageToBold);
+        p.setClientId(myClientId);
+        out.writeObject(p);
+    }
+
+
+    private void sendUnderLine(String message) throws IOException {
+      
+        int endIndex = message.indexOf(" ");
+        String username;
+        String payloadMessage;
+        if (endIndex == -1) { // No space found, so the whole string is the username
+            username = message.substring(1);
+            payloadMessage = "";
+        } else {
+            username = message.substring(1, endIndex);
+            payloadMessage = message.substring(endIndex + 1);
+        }
+        String messageToBold = "<u>" + payloadMessage + "</u>";
+
+        Payload p = new Payload();
+        p.setPayloadType(PayloadType.BOLD);
+        p.setMessage(messageToBold);
+        p.setClientId(myClientId);
+        out.writeObject(p);
+    }
+
+    
+
+ 
+    private Long extractPlayer(ConcurrentHashMap<Long, ClientPlayer> clientsMap, String name){
+        // we are trying to get the to loop through the hashmap 
+        for(ClientPlayer client: clientsMap.values()){
+            if(client.getClientName().equalsIgnoreCase(name)){
+
+                // we are literally looping through each ClientPlayer in the hashmap {ClientPlay: 1} {ClientPlay: 2} {ClientPlay: 3}
+                return client.getClientId();
+            }
+        }
+        return Constants.DEFAULT_CLIENT_ID;
+    }
+
+
     private void sendMute(String message) throws IOException {
             String[] parts = message.split(" ");
-            MutePayload mute = new MutePayload(clientName, parts[1]);
+            // make a flag called muted and add it to the Mutepayload, 
+            // so when the user when ServerThread receives the payload 
+            //it can add that information to the clientsMute list concurrency map
+            // /mute cw 
+            Long clientID = extractPlayer(clientsInRoom, parts[1]);
+            MutePayload mute = new MutePayload();
+            mute.setClientId(clientID);
+            mute.setId(myClientId);
+            mute.setMuter(getClientNameFromId(myClientId));
+            for(ClientPlayer client: clientsInRoom.values()){
+                if(client.getClientName().equalsIgnoreCase(parts[1])){
+                    mute.setMutee(client.getClientName());
+                }
+
+            }
+           
             out.writeObject(mute);
         }
 
     
      private void sendUnMute(String message) throws IOException {
             String[] parts = message.split(" ");
-            UnMutePayload unmute = new UnMutePayload(clientName, parts[1]);
+            Long clientID = extractPlayer(clientsInRoom, parts[1]);
+            UnMutePayload unmute = new UnMutePayload();
+            unmute.setClientId(clientID);
+            unmute.setMuter(getClientNameFromId(myClientId));
+            for(ClientPlayer client: clientsInRoom.values()){
+                if(client.getClientName().equalsIgnoreCase(parts[1])){
+                    unmute.setMutee(client.getClientName());
+                }
+
+            }
+            unmute.setClientId(clientID);
+            unmute.setId(myClientId);
             out.writeObject(unmute);
      }
 
     
     
-
+// check sendMessage for issue 
     public void sendMessage(String message) throws IOException {
         if (message.startsWith("/") && processClientCommand(message)) {
             return;
         }
 
         if(message.startsWith("@")){
-            String[] parts = message.split("@");
-            DMPayload dm = new DMPayload();
-            System.out.println(TextFX.colorize("Client is sending dm:" + message, Color.YELLOW));
-            dm.setSender(clientName);
-            dm.setReceiver(parts[1]);
-            dm.setMessage(message);
+            // @username where are you
+            //@username
+
+                int endIndex = message.indexOf(" ");
+                String username;
+                String payloadMessage;
+                if (endIndex == -1) { // No space found, so the whole string is the username
+                    username = message.substring(1);
+                    payloadMessage = "";
+                } else {
+                    username = message.substring(1, endIndex);
+                    payloadMessage = message.substring(endIndex + 1);
+                }
+                DMPayload dm = new DMPayload();
+                dm.setMessage(payloadMessage);
+                dm.setReceiver(username);
+                dm.setId(myClientId);
+                Long clientID = extractPlayer(clientsInRoom, username);
+                dm.setClientId(clientID);
+    
             out.writeObject(dm);
-        }
+            return;
+            
+        }  // issue here
             System.out.println(TextFX.colorize("Client is sending message: " + message, Color.YELLOW));
             Payload p = new Payload();
             p.setPayloadType(PayloadType.MESSAGE);
             p.setMessage(message);
         // no need to send an identifier, because the server knows who we are
         // p.setClientName(clientName);
+        // client uses send message to 
         out.writeObject(p);
     }
 
@@ -496,6 +667,7 @@ public enum Client {
                     e.onRoomJoin(p.getMessage());
                 });
                 break;
+            
             case MESSAGE:
 
                 message = TextFX.colorize(String.format("%s: %s",
@@ -505,6 +677,29 @@ public enum Client {
                 // events.onMessageReceive(p.getClientId(), p.getMessage());
                 events.forEach(e -> {
                     e.onMessageReceive(p.getClientId(), p.getMessage());
+                });
+                break;
+             case DM:
+                 DMPayload dm = (DMPayload) p;
+                message = TextFX.colorize(String.format("%s: %s",
+                        getClientNameFromId(dm.getClientId()),
+                        dm.getMessage()), Color.RED);
+                System.out.println(message);
+                // events.onMessageReceive(p.getClientId(), p.getMessage());
+                events.forEach(e -> {
+                    e.onMessageReceive(dm.getClientId(), dm.getMessage());
+                });
+                break;
+
+                case MUTE:
+                 MutePayload mute = (MutePayload) p;
+                message = TextFX.colorize(String.format("%s: %s",
+                        getClientNameFromId(mute.getClientId()),
+                        mute.getMessage()), Color.RED);
+                System.out.println(message);
+                // events.onMessageReceive(p.getClientId(), p.getMessage());
+                events.forEach(e -> {
+                    e.onMessageReceive(mute.getClientId(), mute.getMessage());
                 });
                 break;
             case LIST_ROOMS:
@@ -628,7 +823,7 @@ public enum Client {
                     e.printStackTrace();
                 }
                 break;
-
+                // when someone gets muted we are going to send a message to the person that is getting muted using the same logic from the DM 
             case POSITION:
                 try {
                     PositionPayload pp = (PositionPayload) p;
