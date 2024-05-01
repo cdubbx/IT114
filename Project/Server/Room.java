@@ -3,8 +3,10 @@ package Project.Server;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
+import Project.Client.ClientPlayer;
 import Project.Common.Constants;
 
 public class Room implements AutoCloseable {
@@ -170,28 +172,125 @@ public class Room implements AutoCloseable {
      * @param sender  The client sending the message
      * @param message The message to broadcast inside the room
      */
+    //cw72 04/30/24
     protected synchronized void sendMessage(ServerThread sender, String message) {
         if (!isRunning) {
             return;
         }
         info("Sending message to " + clients.size() + " clients");
         if (sender != null && processCommands(message, sender)) {
-            // it was a command, don't broadcast
+            
             return;
         }
-
-        /// String from = (sender == null ? "Room" : sender.getClientName());
+    
         long from = (sender == null) ? Constants.DEFAULT_CLIENT_ID : sender.getClientId();
+    
         Iterator<ServerThread> iter = clients.iterator();
         while (iter.hasNext()) {
             ServerThread client = iter.next();
-            boolean messageSent = client.sendMessage(from, message);
-            if (!messageSent) {
-                handleDisconnect(iter, client);
+            ConcurrentHashMap<Long, ClientPlayer> clientMuteList = client.getMuteList();
+    
+           
+            if (clientMuteList.containsKey(from)) {
+          
+                continue;
+            } else {
+              
+               
+                System.out.println(clientMuteList);
+                boolean messageSent = client.sendMessage(from, message);
+                if (!messageSent) {
+                    handleDisconnect(iter, client);
+                }
             }
         }
     }
 
+    protected synchronized void sendDM(ServerThread sender, Long id, String message, Long otherID){
+        if(!isRunning){
+            return;
+        }
+        if(sender != null && processCommands(message, sender)){
+            return;
+        }
+
+        long from = (sender == null) ? Constants.DEFAULT_CLIENT_ID : sender.getClientId();
+        Iterator<ServerThread> iter = clients.iterator();
+        while(iter.hasNext()){
+            ServerThread client = iter.next();
+            if(client.getClientId() == id ){
+                boolean messageSent = client.sendDM(from, message);
+                if(!messageSent){
+                    handleDisconnect(iter, client);
+                }
+            }
+
+            // when a 
+            if(client.getClientId() == otherID ){
+                   boolean messageSent = client.sendDM(from, message);
+            if(!messageSent){
+                handleDisconnect(iter, client);
+            }
+            }
+         
+        }
+    }
+
+    protected synchronized void sendMute(ServerThread sender, Long receiver, String message, Long otherID){
+        if(!isRunning){
+            return;
+        }
+        if(sender != null && processCommands(message, sender)){
+            return;
+        }
+
+        long from = (sender == null) ? Constants.DEFAULT_CLIENT_ID : sender.getClientId();
+        Iterator<ServerThread> iter = clients.iterator();
+        while(iter.hasNext()){
+            ServerThread client = iter.next();
+            if(client.getClientId() == from){
+                boolean messageSent = client.sendMute(from, message, receiver, client.getClientName());
+                if(!messageSent){
+                    handleDisconnect(iter, client);
+                }
+            }
+            if(client.getClientId() == otherID){
+                   boolean messageSent = client.sendDM(from, message);
+            if(!messageSent){
+                handleDisconnect(iter, client);
+            }
+            }
+         
+        }
+    }
+
+    protected synchronized void sendUmute(ServerThread sender, Long receiver, String message, Long otherID){
+        if(!isRunning){
+            return;
+        }
+        if(sender != null && processCommands(message, sender)){
+            return;
+        }
+
+        long from = (sender == null) ? Constants.DEFAULT_CLIENT_ID : sender.getClientId();
+        Iterator<ServerThread> iter = clients.iterator();
+        while(iter.hasNext()){
+            ServerThread client = iter.next();
+            if(client.getClientId() == from){
+                boolean messageSent = client.sendUnMute(from, message, receiver, client.getClientName());
+                if(!messageSent){
+                    handleDisconnect(iter, client);
+                }
+            }
+            if(client.getClientId() == otherID){
+                   boolean messageSent = client.sendDM(from, message);
+            if(!messageSent){
+                handleDisconnect(iter, client);
+            }
+            }
+         
+        }
+    }
     protected synchronized void sendConnectionStatus(ServerThread sender, boolean isConnected) {
         Iterator<ServerThread> iter = clients.iterator();
         while (iter.hasNext()) {
@@ -208,7 +307,7 @@ public class Room implements AutoCloseable {
         iter.remove();
         info("Removed client " + client.getClientName());
         checkClients();
-        sendMessage(null, client.getClientName() + " disconnected");
+        sendMessage(ServerConstants.FROM_ROOM, client.getClientName() + " disconnected");
     }
 
     public void close() {
